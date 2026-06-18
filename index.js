@@ -2,28 +2,19 @@ const express = require('express');
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
-// Bangladesh + World Popular Models
+// Bangladesh Popular Models
 const modelNames = {
-    // Redmi / Xiaomi / Poco
     '23021RAAEG': 'Redmi 13C',
     '23028RA60L': 'Redmi 13C',
     '23053RN02Y': 'Redmi 13C / Poco C65',
     '23129RAAEG': 'Redmi 14C',
     '22101317C': 'Redmi Note 12 5G',
     '23013RK75C': 'Redmi Note 12',
-    '2201117TG': 'Redmi Note 11',
-
-    // Samsung
     'SM-A145F': 'Galaxy A14',
     'SM-A155F': 'Galaxy A15',
     'SM-A235F': 'Galaxy A23',
-    'SM-A325F': 'Galaxy A32',
-    'SM-A515F': 'Galaxy A51',
-
-    // Realme, Vivo, Infinix, Tecno etc.
     'RMX3391': 'Realme 9i',
     'X669C': 'Infinix Hot 12',
-    'TECNO CK7n': 'Tecno Spark 20',
     // aro add korte paro
 };
 
@@ -47,31 +38,35 @@ app.get('/', (req, res) => {
    
     <script>
         async function getFullDeviceInfo() {
-            let deviceName = "Unknown Device";
+            let deviceFullName = "Unknown Device";
 
-            // High Entropy UA
+            // Try High Entropy First
             if (navigator.userAgentData) {
                 try {
-                    const ua = await navigator.userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion', 'fullVersionList']);
-                    
-                    const modelCode = ua.model ? ua.model.trim() : '';
-                    const platform = ua.platform || 'Unknown';
-
+                    const ua = await navigator.userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion']);
+                    const modelCode = (ua.model || '').trim();
                     if (modelCode) {
-                        deviceName = window.modelNames?.[modelCode] || modelCode;
-                    } else if (platform === 'Android') {
-                        deviceName = 'Android Device';
-                    } else {
-                        deviceName = platform + ' ' + (ua.platformVersion || '');
+                        deviceFullName = window.modelNames?.[modelCode] || modelCode;
+                    } else if (ua.platform === 'Android') {
+                        deviceFullName = 'Android Device (Model Hidden)';
                     }
                 } catch(e) {}
+            }
+
+            // Fallback: Parse User-Agent
+            if (deviceFullName === "Unknown Device" || deviceFullName.includes("Hidden")) {
+                const ua = navigator.userAgent;
+                const androidMatch = ua.match(/Android.*?; ([^;)]+)/);
+                if (androidMatch && androidMatch[1]) {
+                    deviceFullName = androidMatch[1].trim();
+                }
             }
 
             const info = {
                 timestamp: new Date().toISOString(),
                 userAgent: navigator.userAgent,
                 platform: navigator.platform,
-                deviceFullName: deviceName,
+                deviceFullName: deviceFullName,
                 deviceModelCode: navigator.userAgentData?.model || '',
                 screen: { width: screen.width, height: screen.height },
                 hardware: { cores: navigator.hardwareConcurrency, memory: navigator.deviceMemory },

@@ -2,6 +2,61 @@ const express = require('express');
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
+// Bangladesh Popular Models - Full Mapping
+const modelNames = {
+    // Xiaomi / Redmi / Poco (BD e sobcheye beshi use hoy)
+    '23021RAAEG': 'Redmi 13C',
+    '23028RA60L': 'Redmi 13C',
+    '23053RN02Y': 'Redmi 13C / Poco C65',
+    '23129RAAEG': 'Redmi 14C',
+    '22101317C': 'Redmi Note 12 5G / Poco X5',
+    '2201117TG': 'Redmi Note 11',
+    '2201117TI': 'Redmi Note 11',
+    '23013RK75C': 'Redmi Note 12',
+    '23021RAA2Y': 'Redmi Note 12 NFC',
+    'M2101K7AG': 'Redmi Note 10 Pro',
+    'M2010J19CG': 'Redmi Note 9 Pro',
+
+    // Samsung (BD e onek popular)
+    'SM-A145F': 'Galaxy A14',
+    'SM-A155F': 'Galaxy A15',
+    'SM-A235F': 'Galaxy A23',
+    'SM-A325F': 'Galaxy A32',
+    'SM-A515F': 'Galaxy A51',
+    'SM-A528B': 'Galaxy A52s',
+    'SM-G998B': 'Galaxy S21 Ultra',
+    'SM-G991B': 'Galaxy S21',
+    'SM-A166B': 'Galaxy A16',
+    'SM-A256E': 'Galaxy A25',
+
+    // Realme
+    'RMX3391': 'Realme 9i',
+    'RMX3085': 'Realme Narzo 30',
+    'RMX3741': 'Realme C55',
+    'RMX3780': 'Realme GT Neo 3',
+    'RMX3933': 'Realme C67',
+
+    // Vivo
+    'vivo 1901': 'Vivo Y11',
+    'PD2183': 'Vivo Y15s',
+    'vivo 2018': 'Vivo Y12',
+    'PD2207': 'Vivo Y21',
+
+    // Infinix / Tecno (Budget e popular)
+    'X669C': 'Infinix Hot 12',
+    'X682C': 'Infinix Hot 20',
+    'X6532': 'Infinix Hot 40',
+    'TECNO CK7n': 'Tecno Spark 20',
+    'TECNO BG7': 'Tecno Spark 10',
+
+    // Oppo
+    'CPH2127': 'Oppo A53',
+    'CPH2269': 'Oppo A16',
+
+    // Others
+    'Pixel 7': 'Google Pixel 7',
+};
+
 app.get('/', (req, res) => {
     const html = `
 <!DOCTYPE html>
@@ -27,100 +82,41 @@ app.get('/', (req, res) => {
                 userAgent: navigator.userAgent,
                 platform: navigator.platform,
                 language: navigator.language,
-                languages: navigator.languages,
-                screen: {
-                    width: screen.width,
-                    height: screen.height,
-                    availWidth: screen.availWidth,
-                    availHeight: screen.availHeight,
-                    colorDepth: screen.colorDepth,
-                    pixelDepth: screen.pixelDepth
-                },
-                hardware: {
-                    cores: navigator.hardwareConcurrency,
-                    memory: navigator.deviceMemory,
-                },
+                screen: { width: screen.width, height: screen.height },
+                hardware: { cores: navigator.hardwareConcurrency, memory: navigator.deviceMemory },
                 timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             };
 
-            // ==================== FingerprintJS v5 ====================
-            try {
-                const fpPromise = import('https://openfpcdn.io/fingerprintjs/v5')
-                    .then(FingerprintJS => FingerprintJS.load());
-               
-                const fp = await fpPromise;
-                const result = await fp.get();
-               
-                info.fingerprint = {
-                    visitorId: result.visitorId,
-                    confidence: result.confidence,
-                    components: result.components
-                };
-                console.log("✅ FingerprintJS Done:", result.visitorId);
-            } catch(e) {
-                console.log("FingerprintJS Error:", e);
-            }
-
-            // ==================== High Entropy User Agent Data ====================
             if (navigator.userAgentData) {
                 try {
-                    const ua = await navigator.userAgentData.getHighEntropyValues([
-                        'model', 'platform', 'platformVersion', 'architecture',
-                        'bitness', 'fullVersionList'
-                    ]);
+                    const ua = await navigator.userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion']);
                     info.highEntropyUA = ua;
+                    
+                    const modelCode = ua.model || '';
+                    info.deviceModelCode = modelCode;
+                    info.deviceFullName = modelCode 
+                        ? (window.modelNames?.[modelCode] || modelCode + ' (Model Name Not in DB)') 
+                        : 'Unknown';
                 } catch(e) {}
             }
 
-            // ==================== WebRTC Leak Check ====================
             try {
-                const rtcInfo = await getWebRTCInfo();
-                info.webRTC = rtcInfo;
-            } catch(e) {
-                info.webRTC = { error: e.message };
-            }
+                const fpPromise = import('https://openfpcdn.io/fingerprintjs/v5').then(FingerprintJS => FingerprintJS.load());
+                const fp = await fpPromise;
+                const result = await fp.get();
+                info.fingerprint = { visitorId: result.visitorId, confidence: result.confidence.score };
+            } catch(e) {}
 
-            // Server e pathao
             fetch('/track', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(info)
             }).catch(() => {});
 
-            console.log("📤 All Device Info Sent");
+            console.log("📤 Info Sent");
         }
 
-        // WebRTC Leak Detection
-        async function getWebRTCInfo() {
-            return new Promise((resolve) => {
-                const ips = new Set();
-                const pc = new RTCPeerConnection({
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-                });
-
-                pc.createDataChannel('test');
-                pc.onicecandidate = (e) => {
-                    if (e.candidate && e.candidate.candidate) {
-                        const ipMatch = e.candidate.candidate.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
-                        if (ipMatch) ips.add(ipMatch[1]);
-                    }
-                };
-
-                pc.createOffer()
-                    .then(offer => pc.setLocalDescription(offer))
-                    .catch(() => {});
-
-                setTimeout(() => {
-                    pc.close();
-                    resolve({
-                        leakedIPs: Array.from(ips),
-                        hasWebRTC: true
-                    });
-                }, 1500);
-            });
-        }
-
-        // Page load e shob run hobe
+        window.modelNames = ${JSON.stringify(modelNames)};
         window.onload = getFullDeviceInfo;
     </script>
 </body>
@@ -128,10 +124,11 @@ app.get('/', (req, res) => {
     res.send(html);
 });
 
-// Tracking Route
 app.post('/track', (req, res) => {
     console.log('\n🔥🔥 TARGET CLICKED THE LINK! 🔥🔥');
-    console.log('Full Device Information:');
+    console.log('📱 Device Full Name :', req.body.deviceFullName || 'N/A');
+    console.log('📟 Model Code       :', req.body.deviceModelCode || 'N/A');
+    console.log('🔍 Full Information:');
     console.dir(req.body, { depth: null });
     console.log('--------------------------------------------------\n');
    

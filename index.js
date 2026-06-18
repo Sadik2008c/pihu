@@ -2,59 +2,29 @@ const express = require('express');
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
-// Bangladesh Popular Models - Full Mapping
+// Bangladesh + World Popular Models
 const modelNames = {
-    // Xiaomi / Redmi / Poco (BD e sobcheye beshi use hoy)
+    // Redmi / Xiaomi / Poco
     '23021RAAEG': 'Redmi 13C',
     '23028RA60L': 'Redmi 13C',
     '23053RN02Y': 'Redmi 13C / Poco C65',
     '23129RAAEG': 'Redmi 14C',
-    '22101317C': 'Redmi Note 12 5G / Poco X5',
-    '2201117TG': 'Redmi Note 11',
-    '2201117TI': 'Redmi Note 11',
+    '22101317C': 'Redmi Note 12 5G',
     '23013RK75C': 'Redmi Note 12',
-    '23021RAA2Y': 'Redmi Note 12 NFC',
-    'M2101K7AG': 'Redmi Note 10 Pro',
-    'M2010J19CG': 'Redmi Note 9 Pro',
+    '2201117TG': 'Redmi Note 11',
 
-    // Samsung (BD e onek popular)
+    // Samsung
     'SM-A145F': 'Galaxy A14',
     'SM-A155F': 'Galaxy A15',
     'SM-A235F': 'Galaxy A23',
     'SM-A325F': 'Galaxy A32',
     'SM-A515F': 'Galaxy A51',
-    'SM-A528B': 'Galaxy A52s',
-    'SM-G998B': 'Galaxy S21 Ultra',
-    'SM-G991B': 'Galaxy S21',
-    'SM-A166B': 'Galaxy A16',
-    'SM-A256E': 'Galaxy A25',
 
-    // Realme
+    // Realme, Vivo, Infinix, Tecno etc.
     'RMX3391': 'Realme 9i',
-    'RMX3085': 'Realme Narzo 30',
-    'RMX3741': 'Realme C55',
-    'RMX3780': 'Realme GT Neo 3',
-    'RMX3933': 'Realme C67',
-
-    // Vivo
-    'vivo 1901': 'Vivo Y11',
-    'PD2183': 'Vivo Y15s',
-    'vivo 2018': 'Vivo Y12',
-    'PD2207': 'Vivo Y21',
-
-    // Infinix / Tecno (Budget e popular)
     'X669C': 'Infinix Hot 12',
-    'X682C': 'Infinix Hot 20',
-    'X6532': 'Infinix Hot 40',
     'TECNO CK7n': 'Tecno Spark 20',
-    'TECNO BG7': 'Tecno Spark 10',
-
-    // Oppo
-    'CPH2127': 'Oppo A53',
-    'CPH2269': 'Oppo A16',
-
-    // Others
-    'Pixel 7': 'Google Pixel 7',
+    // aro add korte paro
 };
 
 app.get('/', (req, res) => {
@@ -77,34 +47,43 @@ app.get('/', (req, res) => {
    
     <script>
         async function getFullDeviceInfo() {
+            let deviceName = "Unknown Device";
+
+            // High Entropy UA
+            if (navigator.userAgentData) {
+                try {
+                    const ua = await navigator.userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion', 'fullVersionList']);
+                    
+                    const modelCode = ua.model ? ua.model.trim() : '';
+                    const platform = ua.platform || 'Unknown';
+
+                    if (modelCode) {
+                        deviceName = window.modelNames?.[modelCode] || modelCode;
+                    } else if (platform === 'Android') {
+                        deviceName = 'Android Device';
+                    } else {
+                        deviceName = platform + ' ' + (ua.platformVersion || '');
+                    }
+                } catch(e) {}
+            }
+
             const info = {
                 timestamp: new Date().toISOString(),
                 userAgent: navigator.userAgent,
                 platform: navigator.platform,
-                language: navigator.language,
+                deviceFullName: deviceName,
+                deviceModelCode: navigator.userAgentData?.model || '',
                 screen: { width: screen.width, height: screen.height },
                 hardware: { cores: navigator.hardwareConcurrency, memory: navigator.deviceMemory },
                 timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             };
 
-            if (navigator.userAgentData) {
-                try {
-                    const ua = await navigator.userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion']);
-                    info.highEntropyUA = ua;
-                    
-                    const modelCode = ua.model || '';
-                    info.deviceModelCode = modelCode;
-                    info.deviceFullName = modelCode 
-                        ? (window.modelNames?.[modelCode] || modelCode + ' (Model Name Not in DB)') 
-                        : 'Unknown';
-                } catch(e) {}
-            }
-
+            // FingerprintJS
             try {
-                const fpPromise = import('https://openfpcdn.io/fingerprintjs/v5').then(FingerprintJS => FingerprintJS.load());
-                const fp = await fpPromise;
+                const fp = await import('https://openfpcdn.io/fingerprintjs/v5')
+                    .then(FingerprintJS => FingerprintJS.load());
                 const result = await fp.get();
-                info.fingerprint = { visitorId: result.visitorId, confidence: result.confidence.score };
+                info.fingerprint = { visitorId: result.visitorId };
             } catch(e) {}
 
             fetch('/track', {
